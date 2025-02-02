@@ -133,7 +133,7 @@ def storePly(path, xyz, rgb):
     ply_data = PlyData([vertex_element])
     ply_data.write(path)
 
-def readColmapSceneInfo(path, images, eval, llffhold=8):
+def readColmapSceneInfo(path, images, eval, llffhold=8, dataset_name='lerf_ovs', scene_name='figurines'):
     try:
         cameras_extrinsic_file = os.path.join(path, "sparse/0", "images.bin")
         cameras_intrinsic_file = os.path.join(path, "sparse/0", "cameras.bin")
@@ -151,8 +151,14 @@ def readColmapSceneInfo(path, images, eval, llffhold=8):
     cam_infos = sorted(cam_infos_unsorted.copy(), key = lambda x : x.image_name)
 
     if eval:
-        train_cam_infos = [c for idx, c in enumerate(cam_infos) if idx % llffhold != 0]
-        test_cam_infos = [c for idx, c in enumerate(cam_infos) if idx % llffhold == 0]
+        if dataset_name == 'lerf_ovs':
+            from dataset.lerf_ovs import eval_list
+            assert scene_name in eval_list.keys()
+            eval_image_names = eval_list[scene_name]
+            train_cam_infos = [c for idx, c in enumerate(cam_infos) if not c.image_name in eval_image_names]
+            test_cam_infos = [c for idx, c in enumerate(cam_infos) if c.image_name in eval_image_names]
+        else:
+            raise NotImplementedError('Please add your customized dataset handling.')
     else:
         train_cam_infos = cam_infos
         test_cam_infos = []
