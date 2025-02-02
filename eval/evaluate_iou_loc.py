@@ -234,7 +234,11 @@ def evaluate(feat_dir, output_path, ae_ckpt_path, json_folder, mask_thresh, enco
         feat_paths_lvl = sorted(glob.glob(os.path.join(feat_dir[i], '*.npy')),
                                key=lambda file_name: int(os.path.basename(file_name).split(".npy")[0]))
         for j, idx in enumerate(eval_index_list):
-            compressed_sem_feats[i][j] = np.load(feat_paths_lvl[idx])
+            if len(eval_index_list) == len(feat_paths_lvl):
+                # evaluate only novel views
+                compressed_sem_feats[i][j] = np.load(feat_paths_lvl[j])
+            else:
+                compressed_sem_feats[i][j] = np.load(feat_paths_lvl[idx])
 
     # instantiate autoencoder and openclip
     clip_model = OpenCLIPNetwork(device)
@@ -273,8 +277,13 @@ def evaluate(feat_dir, output_path, ae_ckpt_path, json_folder, mask_thresh, enco
 
     # # iou
     mean_iou_chosen = sum(chosen_iou_all) / len(chosen_iou_all)
+    total_count = len(chosen_iou_all)
+    count_iou_025 = (np.array(chosen_iou_all) > 0.25).sum()
+    count_iou_05 = (np.array(chosen_iou_all) > 0.5).sum()
     logger.info(f'trunc thresh: {mask_thresh}')
-    logger.info(f"iou chosen: {mean_iou_chosen:.4f}")
+    logger.info(f"mean iou: {mean_iou_chosen:.4f}")
+    logger.info(f"Acc@0.25: {count_iou_025/total_count:.4f}")
+    logger.info(f"Acc@0.5: {count_iou_05/total_count:.4f}")
     logger.info(f"chosen_lvl: \n{chosen_lvl_list}")
 
     # localization acc
@@ -283,7 +292,15 @@ def evaluate(feat_dir, output_path, ae_ckpt_path, json_folder, mask_thresh, enco
         total_bboxes += len(list(img_ann.keys()))
     acc = acc_num / total_bboxes
     logger.info("Localization accuracy: " + f'{acc:.4f}')
-
+    
+    log_file_path = Path(output_path) / 'result.txt'
+    with open(log_file_path, 'w') as log_file:
+        log_file.write(f'trunc thresh: {mask_thresh}\n')
+        log_file.write(f"mean iou: {mean_iou_chosen:.4f}\n")
+        log_file.write(f"Acc@0.25: {count_iou_025/total_count:.4f}\n")
+        log_file.write(f"Acc@0.5: {count_iou_05/total_count:.4f}\n")
+        log_file.write(f"chosen_lvl: \n{chosen_lvl_list}\n")
+        log_file.write("Localization accuracy: " + f'{acc:.4f}')
 
 def seed_everything(seed_value):
     random.seed(seed_value)
@@ -319,14 +336,18 @@ if __name__ == "__main__":
                         type=int,
                         default=[16, 32, 64, 128, 256, 256, 512],
                         )
+    parser.add_argument('--novel_view', action="store_true")
     args = parser.parse_args()
 
     # NOTE config setting
     dataset_name = args.dataset_name
     mask_thresh = args.mask_thresh
-    feat_dir = [os.path.join(args.feat_dir, dataset_name+f"_{i}", "train/ours_None/renders_npy") for i in range(1,4)]
+    if args.novel_view:
+        feat_dir = [os.path.join(args.feat_dir, dataset_name+f"_{i}", "test/ours_None/renders_npy") for i in range(1,4)]
+    else:
+        feat_dir = [os.path.join(args.feat_dir, dataset_name+f"_{i}", "train/ours_None/renders_npy") for i in range(1,4)]
     output_path = os.path.join(args.output_dir, dataset_name)
-    ae_ckpt_path = os.path.join(args.ae_ckpt_dir, dataset_name, "ae_ckpt/best_ckpt.pth")
+    ae_ckpt_path = os.path.join(args.ae_ckpt_dir, dataset_name, "best_ckpt.pth")
     json_folder = os.path.join(args.json_folder, dataset_name)
 
     # NOTE logger
