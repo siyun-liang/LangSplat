@@ -9,6 +9,7 @@ jaxtyping
 matplotlib
 typing
 pathlib
+mediapy
 
 submodules/segment-anything-langsplat
 submodules/langsplat-rasterization
