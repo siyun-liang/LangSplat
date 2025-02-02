@@ -45,16 +45,23 @@ def render_set(model_path, source_path, name, iteration, views, gaussians, pipel
             
         else:
             gt, mask = view.get_language_feature(os.path.join(source_path, args.language_features_name), feature_level=args.feature_level)
+            gt_norm = (gt + 1) / 2
+            rendering_norm = (rendering + 1) / 2
 
         np.save(os.path.join(render_npy_path, '{0:05d}'.format(idx) + ".npy"),rendering.permute(1,2,0).cpu().numpy())
         np.save(os.path.join(gts_npy_path, '{0:05d}'.format(idx) + ".npy"),gt.permute(1,2,0).cpu().numpy())
-        torchvision.utils.save_image(rendering, os.path.join(render_path, '{0:05d}'.format(idx) + ".png"))
-        torchvision.utils.save_image(gt, os.path.join(gts_path, '{0:05d}'.format(idx) + ".png"))
+        
+        if not args.include_feature:
+            torchvision.utils.save_image(rendering, os.path.join(render_path, '{0:05d}'.format(idx) + ".png"))
+            torchvision.utils.save_image(gt, os.path.join(gts_path, '{0:05d}'.format(idx) + ".png"))
+        else:
+            torchvision.utils.save_image(rendering_norm, os.path.join(render_path, '{0:05d}'.format(idx) + ".png"))
+            torchvision.utils.save_image(gt_norm, os.path.join(gts_path, '{0:05d}'.format(idx) + ".png"))
                
 def render_sets(dataset : ModelParams, iteration : int, pipeline : PipelineParams, skip_train : bool, skip_test : bool, args):
     with torch.no_grad():
         gaussians = GaussianModel(dataset.sh_degree)
-        scene = Scene(dataset, gaussians, shuffle=False)
+        scene = Scene(dataset, gaussians, shuffle=False, dataset_name=args.dataset_name, scene_name=args.scene_name)
         checkpoint = os.path.join(args.model_path, 'chkpnt30000.pth')
         (model_params, first_iter) = torch.load(checkpoint)
         gaussians.restore(model_params, args, mode='test')
@@ -79,6 +86,8 @@ if __name__ == "__main__":
     parser.add_argument("--skip_test", action="store_true")
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--include_feature", action="store_true")
+    parser.add_argument("--dataset_name", type=str, default = None)
+    parser.add_argument("--scene_name", type=str, default = None)
 
     args = get_combined_args(parser)
     print("Rendering " + args.model_path)
