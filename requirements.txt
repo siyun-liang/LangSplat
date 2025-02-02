@@ -1,0 +1,15 @@
+pip==22.3.1
+safetensors==0.4.3
+open_clip_torch
+plyfile==0.8.1
+tqdm
+opencv-python
+tensorboard
+jaxtyping
+matplotlib
+typing
+pathlib
+
+submodules/segment-anything-langsplat
+submodules/langsplat-rasterization
+submodules/simple-knn
