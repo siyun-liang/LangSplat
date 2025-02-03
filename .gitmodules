@@ -6,4 +6,4 @@
 	url = https://gitlab.inria.fr/bkerbl/simple-knn.git
 [submodule "submodules/langsplat-rasterization"]
 	path = submodules/langsplat-rasterization
-	url = https://github.com/minghanqin/langsplat-rasterization
+	url = git@github.com:siyun-liang/langsplat-rasterization.git
