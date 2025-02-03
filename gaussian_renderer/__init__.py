@@ -52,9 +52,9 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
 
     rasterizer = GaussianRasterizer(raster_settings=raster_settings)
 
-    means3D = pc.get_xyz
-    means2D = screenspace_points
-    opacity = pc.get_opacity
+    means3D = pc.get_xyz[opt.mask] if hasattr(opt, "mask") else pc.get_xyz
+    means2D = screenspace_points[opt.mask] if hasattr(opt, "mask") else screenspace_points
+    opacity = pc.get_opacity[opt.mask] if hasattr(opt, "mask") else pc.get_opacity
 
     # If precomputed 3d covariance is provided, use it. If not, then it will be computed from
     # scaling / rotation by the rasterizer.
@@ -62,10 +62,10 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
     rotations = None
     cov3D_precomp = None
     if pipe.compute_cov3D_python:
-        cov3D_precomp = pc.get_covariance(scaling_modifier)
+        cov3D_precomp = pc.get_covariance(scaling_modifier)[opt.mask] if hasattr(opt, "mask") else pc.get_covariance(scaling_modifier)
     else:
-        scales = pc.get_scaling
-        rotations = pc.get_rotation
+        scales = pc.get_scaling[opt.mask] if hasattr(opt, "mask") else pc.get_scaling
+        rotations = pc.get_rotation[opt.mask] if hasattr(opt, "mask") else pc.get_rotation
 
     # If precomputed colors are provided, use them. Otherwise, if it is desired to precompute colors
     # from SHs in Python, do it. If not, then SH -> RGB conversion will be done by rasterizer.
@@ -77,23 +77,25 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
             dir_pp = (pc.get_xyz - viewpoint_camera.camera_center.repeat(pc.get_features.shape[0], 1))
             dir_pp_normalized = dir_pp/dir_pp.norm(dim=1, keepdim=True)
             sh2rgb = eval_sh(pc.active_sh_degree, shs_view, dir_pp_normalized)
-            colors_precomp = torch.clamp_min(sh2rgb + 0.5, 0.0)
+            colors_precomp = torch.clamp_min(sh2rgb + 0.5, 0.0)[opt.mask] if hasattr(opt, "mask") else torch.clamp_min(sh2rgb + 0.5, 0.0)
         else:
-            shs = pc.get_features
+            shs = pc.get_features[opt.mask] if hasattr(opt, "mask") else pc.get_features
     else:
-        colors_precomp = override_color
+        colors_precomp = override_color[opt.mask] if hasattr(opt, "mask") else override_color
 
     if opt.include_feature:
         language_feature_precomp = pc.get_language_feature
         language_feature_precomp = language_feature_precomp/ (language_feature_precomp.norm(dim=-1, keepdim=True) + 1e-9)
         # language_feature_precomp = torch.sigmoid(language_feature_precomp)
+        if hasattr(opt, "mask"):
+            language_feature_precomp = language_feature_precomp[opt.mask]
     else:
         language_feature_precomp = torch.zeros((1,), dtype=opacity.dtype, device=opacity.device)
         
     # Rasterize visible Gaussians to image, obtain their radii (on screen). 
     # start_time = time.time()
 
-    rendered_image, language_feature_image, radii = rasterizer(
+    rendered_image, language_feature_image, render_alpha_image, radii = rasterizer(
         means3D = means3D,
         means2D = means2D,
         shs = shs,
@@ -110,6 +112,7 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
     
     return {"render": rendered_image,
             "language_feature_image": language_feature_image,
+            "render_alpha": render_alpha_image,
             "viewspace_points": screenspace_points,
             "visibility_filter" : radii > 0,
             "radii": radii}

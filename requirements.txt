@@ -10,6 +10,7 @@ matplotlib
 typing
 pathlib
 mediapy
+scikit-learn
 
 submodules/segment-anything-langsplat
 submodules/langsplat-rasterization

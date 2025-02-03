@@ -110,3 +110,14 @@ class OpenCLIPNetwork:
         
         relev_map = torch.stack(n_levels_sims).view(n_levels, n_phrases, h, w)
         return relev_map
+
+
+    def get_max_across_3d(self, clip_output):
+        n_phrases = len(self.positives)
+        n_phrases_sims = [None for _ in range(n_phrases)]
+        for j in range(n_phrases):
+            probs = self.get_relevancy(clip_output, j)
+            pos_prob = probs[..., 0:1]
+            n_phrases_sims[j] = pos_prob
+        relev_map = torch.stack(n_phrases_sims).squeeze()
+        return relev_map
